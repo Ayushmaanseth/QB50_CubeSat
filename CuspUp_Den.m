@@ -1,6 +1,6 @@
 % ----- Deriving Neutral Densities During Cusp Upwellings -----
 
-% Written by Jennifer Hall June 2016
+
 
 % Notes:
 % =================================================================
