@@ -25,7 +25,7 @@ files = os.listdir()
 myarray = bytearray()
 
 i = 0
-f = open('50.dat','rb')
+f = open(files[0],'rb')
 #dummy = f.read(1)
 byte = b'\x00'
 temp_byte = b'\x00'
