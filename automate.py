@@ -22,16 +22,18 @@ filepath = str(filepath)
 os.chdir(filepath)
 
 files = os.listdir()
+files = sorted(files,key=len)
+#print(files)
 #files = files[3:]
 
 k = 0
 
 
-vpk_array = np.zeros((6,2,len(files)))
-burst_count_array1 = np.zeros((6,16,len(files)))
-burst_count_array2 = np.zeros((4,3,len(files)))
-
-#dump_array = np.zeros((10,10,len(files)))
+vpk_array = np.zeros((len(files),6,2))
+burst_count_array1 = np.zeros((len(files),6,16))
+burst_count_array2 = np.zeros((len(files),4,3))
+burst_max_array = np.zeros((len(files),6))
+#dump_array = np.zeros((10,10,len(files)))	
 
 formatted_structure = {}
 
@@ -60,8 +62,8 @@ while file != '':
 	calculation_structures[i]['start_bit'] = current_bit- int(int(current_bit/8) * 8)
 	current_bit += calculation_structures[i]['nbit']
 	file = filepath_object.readline()
-	#print(calculation_structures[i])
 	i += 1
+#pp.pprint(calculation_structures)
 
 def PKG_extract(calculation_structures,bytes_data,vpk_index):
 	j = 0
@@ -71,10 +73,10 @@ def PKG_extract(calculation_structures,bytes_data,vpk_index):
 		BURST_COUNT_int = int.from_bytes(BURST_COUNT,byteorder='big')
 		BURST_COUNT_bin = '{:024b}'.format(BURST_COUNT_int)
 		BURST_COUNT_final = int(BURST_COUNT_bin[calculation_structures[j]['start_bit']:calculation_structures[j]['start_bit']+calculation_structures[j]['nbit']],2)
-		#print('{}'.format(calculation_structures[j]['var']),"Taken from {}".format(calculation_structures[j]['start_bit']),int(BURST_COUNT_bin[calculation_structures[j]['start_bit']:calculation_structures[j]['start_bit']+calculation_structures[j]['nbit']],2))
+		print('{}'.format(calculation_structures[j]['var']),"Taken from {}".format(calculation_structures[j]['start_bit']),int(BURST_COUNT_bin[calculation_structures[j]['start_bit']:calculation_structures[j]['start_bit']+calculation_structures[j]['nbit']],2))
 		formatted_structure[calculation_structures[j]['var']] = BURST_COUNT_final
 		j += 1
-		vpk_array[vpk_index][i][k] = BURST_COUNT_final
+		vpk_array[k][vpk_index][i] = BURST_COUNT_final
 
 
 	vpk_index += 1
@@ -82,9 +84,10 @@ def PKG_extract(calculation_structures,bytes_data,vpk_index):
 def BURST_extract(calculation_structures,bytes_data,burst_count_index1):
 	j = 0
 
-	for k in range(3):
-
+	for a in range(3):
+		mi = 0
 		for i in range(16):
+			
 			BURST_COUNT = bytes_data[calculation_structures[j]['start_byte']:calculation_structures[j]['start_byte']+3]
 			BURST_COUNT_int = int.from_bytes(BURST_COUNT,byteorder='big')
 			BURST_COUNT_bin = '{:024b}'.format(BURST_COUNT_int)
@@ -92,9 +95,18 @@ def BURST_extract(calculation_structures,bytes_data,burst_count_index1):
 			#print('{}'.format(calculation_structures[j]['var']),"Taken from {} bit and {} byte".format(calculation_structures[j]['start_bit'],calculation_structures[j]['start_byte']),int(BURST_COUNT_bin[calculation_structures[j]['start_bit']:calculation_structures[j]['start_bit']+calculation_structures[j]['nbit']],2))
 			formatted_structure[calculation_structures[j]['var']] = BURST_COUNT_final
 			j += 1
-			burst_count_array1[burst_count_index1][i][k] = BURST_COUNT_final
+			burst_count_array1[k][burst_count_index1][i] = BURST_COUNT_final
+			#if BURST_COUNT_final > mi:
+				#mi = BURST_COUNT_final
+				#burst_max_array[k][burst_count_index1] = mi
+				#print(burst_max_array)
 
+		burst_max_array[k][burst_count_index1] = max(burst_count_array1[k][burst_count_index1])
+		#print(burst_count_array1[k])
 		burst_count_index1 += 1
+		#print(burst_max_array[0])
+
+
 
 def BURST_LAST_extract(calculation_structures,bytes_data,burst_count_index2):
 
@@ -109,7 +121,7 @@ def BURST_LAST_extract(calculation_structures,bytes_data,burst_count_index2):
 		#print('{}'.format(calculation_structures[j]['var']),"Taken from {}".format(calculation_structures[j]['start_bit']),int(BURST_COUNT_bin[calculation_structures[j]['start_bit']:calculation_structures[j]['start_bit']+calculation_structures[j]['nbit']],2))
 		formatted_structure[calculation_structures[j]['var']] = BURST_COUNT_final
 		j += 1
-		burst_count_array2[burst_count_index2][i][k] = BURST_COUNT_final
+		burst_count_array2[k][burst_count_index2][i] = BURST_COUNT_final
 
 	
 	burst_count_index2 += 1
@@ -129,7 +141,7 @@ while k < len(files):
 	burst_count_index2 = 0
 	#filepath.close()
 	#print("opening new file now")
-	DAT_file_object = open('53.dat','rb')
+	DAT_file_object = open(files[k],'rb')
 
 
 	time = DAT_file_object.read(4)
@@ -175,6 +187,10 @@ while k < len(files):
 	#print("resp_id:",int.from_bytes(resp_id,byteorder='big'))
 	#print("seq_cnt:",int.from_bytes(seq_cnt,byteorder='big'))
 	#print("i_ion:",int.from_bytes(i_ion,byteorder='big'))
+	if int.from_bytes(resp_id,byteorder='big') != 8:
+		#print(files[k],int.from_bytes(resp_id,byteorder='big'))
+		k += 1
+		continue
 
 	bytes_data = DAT_file_object.read()
 	#print(bytes_data)
@@ -188,22 +204,36 @@ while k < len(files):
 		PKG_extract(copied_structures,bytes_data,vpk_index)
 		copied_structures = copied_structures[2:]
 
+		#print("Calling index of counts is",burst_count_index1)
 		BURST_extract(copied_structures,bytes_data,burst_count_index1)
 		copied_structures = copied_structures[48:]
+
+		vpk_index += 1
+		burst_count_index1 += 3
 	
 	
 	for i in range(4):
 
+		#print("calling index is",burst_count_index2)
 		PKG_extract(copied_structures,bytes_data,vpk_index)
 		copied_structures = copied_structures[2:]
 	
 		BURST_LAST_extract(copied_structures,bytes_data,burst_count_index2)
 		copied_structures = copied_structures[3:]
+
+		vpk_index += 1
+		burst_count_index2 += 1	
 	
 	#print("Closing file now")
 	DAT_file_object.close()
 	final_structure[files[k]] = formatted_structure
 	k += 1
 	
-#pp.pprint(final_structure['4.dat']['time'])
+
+
+for i in range(len(files)):
+	for j in range(6):
+		for k in range(16):
+			if burst_count_array1[i][j][k] != 0:
+				print(i,j,k,burst_count_array1[i][j][k])
 
